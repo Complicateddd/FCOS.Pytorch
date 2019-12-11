@@ -188,10 +188,26 @@ if __name__=="__main__":
         i=np.transpose(i,(1,2,0))
         i=cv2.cvtColor(i,cv2.COLOR_RGB2BGR)
         print(i.shape,type(i))
-        cv2.imwrite(str(index)+".jpg",i)
+        cv2。imwrite（str（index）+ “ .jpg”，i）
 
+'''
+Dataset：
+return 
+Batch_Imgs：[batch_size,3,imput_h,imput_w]
+Batch_Boxes: [batch_size,m,4]
+Batch_Classes:[batch_size,m]
 
+解决同个batch不能组合成tensor的问题：
 
+Img：cv2.cvtColor
+Img_resize:cv2.resize:  satisfy [800,~] or [~,1024]
+Img_padding: torch.nn.functional.pad :    padding 0 to satisfy 整除32
+
+Collate_fn 策略 :
+1.	imges 拼接：选一个batch中最大尺寸的作为shape。其余的img pad 0达到统一尺度
+2.	box拼接：选择有目标最多的个数作为统一的m，其他填充-1 达到统一尺度
+3.	class拼接：选择有目标最多的个数作为统一的m，其他填充-1 达到统一尺度
+'''
 
 
 
