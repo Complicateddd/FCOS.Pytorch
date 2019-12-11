@@ -1,0 +1,80 @@
+FCOS：
+1)	Dataset：
+return 
+Batch_Imgs：[batch_size,3,imput_h,imput_w]
+Batch_Boxes: [batch_size,m,4]
+Batch_Classes:[batch_size,m]
+
+解决同个batch不能组合成tensor的问题：
+
+Img：cv2.cvtColor
+Img_resize:cv2.resize:  satisfy [800,~] or [~,1024]
+Img_padding: torch.nn.functional.pad :    padding 0 to satisfy 整除32
+
+Collate_fn 策略 :
+1.	imges 拼接：选一个batch中最大尺寸的作为shape。其余的img pad 0达到统一尺度
+2.	box拼接：选择有目标最多的个数作为统一的m，其他填充-1 达到统一尺度
+3.	class拼接：选择有目标最多的个数作为统一的m，其他填充-1 达到统一尺度
+
+
+2）loss：
+GenTargets:
+input: 
+  [0]list [cls_logits,cnt_logits,reg_preds]  
+  cls_logits  list contains five [batch_size,class_num,h,w]
+  cnt_logits  list contains five [batch_size,1,h,w]  
+  reg_preds   list contains five [batch_size,4,h,w]  
+  [1]gt_boxes [batch_size,m,4]  FloatTensor  
+  [2]classes [batch_size,m]  LongTensor
+
+Returns
+  cls_targets:[batch_size,sum(_h*_w),1]
+  cnt_targets:[batch_size,sum(_h*_w),1]
+  reg_targets:[batch_size,sum(_h*_w),4]       
+
+
+===========================================================================================================================================
+--gen_level_targets (self,out,gt_boxes,classes,stride,limit_range,sample_radiu_ratio=1.5)
+ Args  
+        out: 每一个level的list： [[batch_size,class_num,h,w],[batch_size,1,h,w],[batch_size,4,h,w]]  
+        gt_boxes                     #[batch_size,m,4]  
+        classes                     #[batch_size,m]  
+        stride int                  #level下采样的倍数 
+        limit_range list [min,max]  #每层level的limit的range
+ Returns  
+        cls_targets,cnt_targets,reg_targets
+  
+  》先获得本层level下的h和w对应原图的coords坐标值 ：coords_fmap2orig（）        #[h*w,2]
+  》reshape：
+        cls_logits=cls_logits.reshape((batch_size,-1,class_num))#[batch_size,h*w,class_num]  
+        cnt_logits=cnt_logits.permute(0,2,3,1)
+        cnt_logits=cnt_logits.reshape((batch_size,-1,1))#[batch_size,h*w,1]
+        reg_preds=reg_preds.permute(0,2,3,1)
+        reg_preds=reg_preds.reshape((batch_size,-1,4))#[batch_size,h*w,4]
+  
+  》按文章生成l*，t*，r*，b*：
+        x=coords[:,0]
+        y=coords[:,1]
+        l_off=x[None,:,None]-gt_boxes[...,0][:,None,:]          #[1,h*w,1]-[batch_size,1,m]-->[batch_size,h*w,m]
+        t_off=y[None,:,None]-gt_boxes[...,1][:,None,:]
+        r_off=gt_boxes[...,2][:,None,:]-x[None,:,None]
+        b_off=gt_boxes[...,3][:,None,:]-y[None,:,None]
+        ltrb_off=torch.stack([l_off,t_off,r_off,b_off],dim=-1)   #[batch_size,h*w,m,4]
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
