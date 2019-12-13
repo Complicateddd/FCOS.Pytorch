@@ -194,23 +194,39 @@ class GenTargets(nn.Module):
 def compute_cls_loss(preds,targets,mask):
     '''
     Args  
-    preds: list contains five level pred [batch_size,class_num,_h,_w]
-    targets: [batch_size,sum(_h*_w),1]
-    mask: [batch_size,sum(_h*_w)]
+    preds: list contains five level pred [batch_size,class_num,_h,_w]   5个level分开装
+    targets: [batch_size,sum(_h*_w),1]  每张图片5个level的合并
+    mask: [batch_size,sum(_h*_w)]       每张图片5个level的合并
     '''
+    #取batchsize
     batch_size=targets.shape[0]
+    
     preds_reshape=[]
+    
+    #取class个数
     class_num=preds[0].shape[1]
+    
+    #mask增加一维
     mask=mask.unsqueeze(dim=-1)
     # mask=targets>-1#[batch_size,sum(_h*_w),1]
+    
+    #计算每张图片5个level正样本的总数#[batch_size,]
     num_pos=torch.sum(mask,dim=[1,2]).clamp_(min=1).float()#[batch_size,]
+    
+    #把pred也reshape成targets的数据结构#[batch_size,sum(_h*_w),class_num]
     for pred in preds:
         pred=pred.permute(0,2,3,1)
         pred=torch.reshape(pred,[batch_size,-1,class_num])
         preds_reshape.append(pred)
     preds=torch.cat(preds_reshape,dim=1)#[batch_size,sum(_h*_w),class_num]
+    
+    
     assert preds.shape[:2]==targets.shape[:2]
+    
+    
     loss=[]
+    
+    #---------遍历所有图片 计算focal loss【sum,[0,0,....,1,0,0,...]】focal loss 把每个预测当做二值预测 0代表的有无，而不是背景
     for batch_index in range(batch_size):
         pred_pos=preds[batch_index]#[sum(_h*_w),class_num]
         target_pos=targets[batch_index]#[sum(_h*_w),1]
@@ -218,6 +234,7 @@ def compute_cls_loss(preds,targets,mask):
         loss.append(focal_loss_from_logits(pred_pos,target_pos).view(1))
     return torch.cat(loss,dim=0)/num_pos#[batch_size,]
 
+###---------------注意此处的cnt和reg_loss只针对正样本计算，即num_positive  而class_loss是整个hw每个位置ij的
 def compute_cnt_loss(preds,targets,mask):
     '''
     Args  
@@ -243,6 +260,7 @@ def compute_cnt_loss(preds,targets,mask):
         target_pos=targets[batch_index][mask[batch_index]]#[num_pos_b,]
         assert len(pred_pos.shape)==1
         loss.append(nn.functional.binary_cross_entropy_with_logits(input=pred_pos,target=target_pos,reduction='sum').view(1))
+        ##-(ylog(simoid(x))+(1-y)log(1-sigmoid(x)))
     return torch.cat(loss,dim=0)/num_pos#[batch_size,]
 
 def compute_reg_loss(preds,targets,mask,mode='giou'):
