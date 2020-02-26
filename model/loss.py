@@ -152,12 +152,25 @@ class GenTargets(nn.Module):
         areas_min_ind=torch.min(areas,dim=-1)[1]#[batch_size,h*w]
         
         #》------------根据areas_min_ind生成reg_targets #[batch_size,h*w,4]
-        reg_targets=ltrb_off[torch.zeros_like(areas,dtype=torch.bool).scatter_(-1,areas_min_ind.unsqueeze(dim=-1),1)]#[batch_size*h*w,4]
+        
+        #改动一些bug：源代码
+        #reg_targets=ltrb_off[torch.zeros_like(areas,dtype=torch.bool).scatter_(-1,areas_min_ind.unsqueeze(dim=-1),1)]#[batch_size*h*w,4]
+        
+        ###modify start
+        tmp=torch.zeros_like(areas,dtype=torch.long).scatter_(-1,areas_min_ind.unsqueeze(dim=-1),1)
+        tmp=tmp>0
+        reg_targets=ltrb_off[tmp]
+        ###modify  end
         reg_targets=torch.reshape(reg_targets,(batch_size,-1,4))#[batch_size,h*w,4]
         
         #》-----------根据areas_min_ind生成cls_targets #[batch_size,h*w,4]
         classes=torch.broadcast_tensors(classes[:,None,:],areas.long())[0]        #广播[batch_size,m] ->  [batch_size,h*w,m]
-        cls_targets=classes[torch.zeros_like(areas,dtype=torch.bool).scatter_(-1,areas_min_ind.unsqueeze(dim=-1),1)]
+        
+        ###改动一些bug：源代码
+        #cls_targets=classes[torch.zeros_like(areas,dtype=torch.bool).scatter_(-1,areas_min_ind.unsqueeze(dim=-1),1)]
+        ##modify
+        cls_targets=classes[tmp]
+        
         cls_targets=torch.reshape(cls_targets,(batch_size,-1,1))#[batch_size,h*w,1]
         
         #》---------------根据reg_targets计算cnt_targets
